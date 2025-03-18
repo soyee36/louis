@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Square Collector</title>
+    <style>
+        canvas {
+            border: 1px solid white;
+            background: #1a1a1a;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <audio style="display: none;" src="Whispers of Fire - The firewalkers.mp3" id="cantletgomusic" loop></audio>
+    <script>
+        const aud = document.getElementById("cantletgomusic");
+        aud.volume = 0.5;
+        let musicInterval = null;
+        let gameStarted = false;
+
+        // Function to start music looping every 2 seconds
+        function startMusicLoop() {
+            aud.play().catch(error => {
+                console.log("Audio play failed:", error);
+            });
+        }
+
+        // Start game and music
+        function startGame() {
+            gameStarted = true;
+            startMusicLoop();
+            for (let i = 0; i < 5; i++) {
+                spawnCoin();
+                spawnSpike();
+            }
+        }
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Player properties
+        const player = {
+            x: 50,
+            y: 500,
+            size: 30,
+            speed: 5,
+            velocityX: 0,
+            velocityY: 0,
+            jumping: false,
+            onWall: false,
+            score: 0,
+            rotation: 0
+        };
+
+        // Game objects
+        const coins = [];
+        const spikes = [];
+        const trail = [];
+        const gravity = 0.5;
+        const jumpForce = -12;
+        const wallJumpForceY = -10;
+        const wallJumpForceX = 8;
+        const rotationSpeed = 0.2;
+        let gameOver = false;
+        let restartTriggered = false;
+
+        // High score management
+        let highScore = localStorage.getItem('highScore') ? parseInt(localStorage.getItem('highScore')) : 0;
+
+        // Safe zone around player spawn
+        const safeZone = {
+            xMin: player.x - 50,
+            xMax: player.x + player.size + 50,
+            yMin: player.y - 50,
+            yMax: player.y + player.size
+        };
+
+        // Walls (invisible boundaries)
+        const walls = [
+            { x: 0, y: 0, width: 1, height: canvas.height },  // Left wall
+            { x: canvas.width - 1, y: 0, width: 1, height: canvas.height }  // Right wall
+        ];
+
+        // Controls
+        const keys = {
+            right: false,
+            left: false,
+            jump: false
+        };
+
+        // Event listeners for controls (only active after game starts)
+        document.addEventListener('keydown', (e) => {
+            if (!gameStarted) return; // Ignore controls until game starts
+            if (e.key === 'd' || e.key === 'D') keys.right = true;
+            if (e.key === 'a' || e.key === 'A') keys.left = true;
+            if (e.key === ' ' && (!player.jumping || player.onWall)) {
+                keys.jump = true;
+                if (player.onWall) {
+                    player.velocityY = wallJumpForceY;
+                    player.velocityX = player.x < canvas.width / 2 ? wallJumpForceX : -wallJumpForceX;
+                    player.onWall = false;
+                } else if (!player.jumping) {
+                    player.jumping = true;
+                    player.velocityY = jumpForce;
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'd' || e.key === 'D') keys.right = false;
+            if (e.key === 'a' || e.key === 'A') keys.left = false;
+            if (e.key === ' ') keys.jump = false;
+        });
+
+        // Single-use listener to start the game
+        document.addEventListener('keydown', startGame, { once: true });
+
+        // Spawn objects
+        function spawnCoin() {
+            coins.push({
+                x: Math.random() * (canvas.width - 20),
+                y: Math.random() * (canvas.height - 100),
+                size: 15
+            });
+        }
+
+        function spawnSpike() {
+            let x, y;
+            do {
+                x = Math.random() * (canvas.width - 20);
+                y = canvas.height - 20;
+            } while (x + 20 > safeZone.xMin && x < safeZone.xMax && y + 20 > safeZone.yMin && y < safeZone.yMax);
+            
+            spikes.push({
+                x: x,
+                y: y,
+                size: 20
+            });
+        }
+
+        // Collision detection
+        function checkCollision(rect1, rect2) {
+            return (rect1.x < rect2.x + (rect2.width || rect2.size) &&
+                    rect1.x + rect1.size > rect2.x &&
+                    rect1.y < rect2.y + (rect2.height || rect2.size) &&
+                    rect1.y + rect1.size > rect2.y);
+        }
+
+        // Game loop
+        function update() {
+            if (!gameStarted) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = 'white';
+                ctx.font = '40px Arial';
+                ctx.fillText('Press any key to start', canvas.width/2 - 150, canvas.height/2);
+                requestAnimationFrame(update);
+                return;
+            }
+
+            if (gameOver && !restartTriggered) {
+                restartTriggered = true;
+                aud.pause();
+                if (musicInterval) clearInterval(musicInterval);
+                musicInterval = null;
+                if (player.score > highScore) {
+                    highScore = player.score;
+                    localStorage.setItem('highScore', highScore);
+                }
+                setTimeout(() => {
+                    location.reload();
+                }, 500);
+            }
+
+            if (gameOver) return;
+
+            // Player movement
+            if (keys.right && player.x < canvas.width - player.size) {
+                player.x += player.speed;
+            }
+            if (keys.left && player.x > 0) {
+                player.x -= player.speed;
+            }
+
+            // Apply velocity
+            player.velocityY += gravity;
+            player.x += player.velocityX;
+            player.y += player.velocityY;
+
+            // Friction for horizontal velocity
+            player.velocityX *= 0.9;
+
+            // Wall collision and wall jumping
+            player.onWall = false;
+            for (let wall of walls) {
+                if (checkCollision(player, wall)) {
+                    player.onWall = true;
+                    player.jumping = false;
+                    player.velocityY = 0;
+                    player.x = wall.x === 0 ? wall.x + wall.width : wall.x - player.size;
+                }
+            }
+
+            // Rotate when jumping or on wall
+            if (player.jumping || player.onWall) {
+                player.rotation += rotationSpeed;
+            } else {
+                player.rotation = 0;
+            }
+
+            // Ground collision
+            if (player.y > canvas.height - player.size) {
+                player.y = canvas.height - player.size;
+                player.velocityY = 0;
+                player.jumping = false;
+                player.onWall = false;
+            }
+
+            // Trail effect update
+            trail.push({ x: player.x, y: player.y, alpha: 1 });
+            for (let i = trail.length - 1; i >= 0; i--) {
+                trail[i].alpha -= 0.05;
+                if (trail[i].alpha <= 0) trail.splice(i, 1);
+            }
+
+            // Coin collection
+            for (let i = coins.length - 1; i >= 0; i--) {
+                if (checkCollision(player, coins[i])) {
+                    coins.splice(i, 1);
+                    player.score += 1;
+                    spawnCoin();
+                }
+            }
+
+            // Spike collision
+            for (let spike of spikes) {
+                if (checkCollision(player, spike)) {
+                    gameOver = true;
+                }
+            }
+
+            // Drawing
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw trail
+            ctx.fillStyle = 'rgba(255, 0, 255, 0.2)';
+            for (let t of trail) {
+                ctx.globalAlpha = t.alpha;
+                ctx.fillRect(t.x, t.y, player.size, player.size);
+            }
+            ctx.globalAlpha = 1;
+
+            // Draw player (rotating white square)
+            ctx.save();
+            ctx.translate(player.x + player.size/2, player.y + player.size/2);
+            ctx.rotate(player.rotation);
+            ctx.fillStyle = 'white';
+            ctx.fillRect(-player.size/2, -player.size/2, player.size, player.size);
+            ctx.restore();
+
+            // Draw coins (yellow circles)
+            ctx.fillStyle = 'yellow';
+            for (let coin of coins) {
+                ctx.beginPath();
+                ctx.arc(coin.x + coin.size/2, coin.y + coin.size/2, coin.size/2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Draw spikes (red triangles)
+            ctx.fillStyle = 'red';
+            for (let spike of spikes) {
+                ctx.beginPath();
+                ctx.moveTo(spike.x + spike.size/2, spike.y - spike.size);
+                ctx.lineTo(spike.x, spike.y);
+                ctx.lineTo(spike.x + spike.size, spike.y);
+                ctx.fill();
+            }
+
+            // Draw score and high score
+            ctx.fillStyle = 'white';
+            ctx.font = '20px Arial';
+            ctx.fillText(`Score: ${player.score}`, 10, 30);
+            ctx.fillText(`High Score: ${highScore}`, 10, 60);
+
+            // Game over text
+            if (gameOver) {
+                ctx.fillStyle = 'white';
+                ctx.font = '40px Arial';
+                ctx.fillText('Game Over!', canvas.width/2 - 100, canvas.height/2);
+                ctx.font = '20px Arial';
+                const restartText = 'Restarting...';
+                const textWidth = ctx.measureText(restartText).width;
+                ctx.fillText(restartText, canvas.width/2 - textWidth/2, canvas.height/2 + 40);
+            }
+
+            requestAnimationFrame(update);
+        }
+
+        // Start game loop
+        update();
+    </script>
+</body>
+</html>
