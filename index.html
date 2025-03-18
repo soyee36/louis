@@ -20,7 +20,7 @@
 </head>
 <body>
     <canvas id="gameCanvas" width="800" height="600"></canvas>
-    <audio style="display: none;" src="CantLetGo.mp3" id="cantletgomusic"></audio>
+    <audio style="display: none;" src="assets/Whispers of Fire - The firewalkers.mp3.mp3" id="cantletgomusic"></audio>
     <script>
         const aud = document.getElementById("cantletgomusic");
         aud.volume = 0.5;
@@ -32,12 +32,7 @@
             aud.play().catch(error => {
                 console.log("Audio play failed:", error);
             });
-            musicInterval = setInterval(() => {
-                aud.currentTime = 0; // Reset to start
-                aud.play().catch(error => {
-                    console.log("Audio play failed:", error);
-                });
-            }, 2000); // Restart every 2 seconds
+            
         }
 
         // Start game and music
