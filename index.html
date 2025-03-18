@@ -6,6 +6,7 @@
     <style>
         body {
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             height: 100vh;
@@ -18,7 +19,7 @@
             border: 1px solid white;
             background: #1a1a1a;
             width: 100%;
-            height: 100%;
+            height: 80%;
             max-width: 800px;
             max-height: 600px;
         }
@@ -57,6 +58,8 @@
         <button id="rightBtn">Right</button>
     </div>
     <script>
+        console.log("Script loaded"); // Debug: Check if script runs
+
         const aud = document.getElementById("cantletgomusic");
         aud.volume = 0.5;
         let musicInterval = null;
@@ -64,13 +67,14 @@
 
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        console.log("Canvas context initialized:", ctx); // Debug: Check canvas
 
         // Dynamically set canvas size
         function resizeCanvas() {
             const maxWidth = 800;
             const maxHeight = 600;
             const windowWidth = window.innerWidth;
-            const windowHeight = window.innerHeight;
+            const windowHeight = window.innerHeight * 0.8; // 80% for buttons
             const aspectRatio = maxWidth / maxHeight;
 
             let width = windowWidth;
@@ -84,8 +88,6 @@
                 width = height * aspectRatio;
             }
 
-            if (windowWidth <= 768) height *= 0.8; // Adjust for mobile
-
             canvas.width = width;
             canvas.height = height;
 
@@ -96,6 +98,8 @@
             player.y = canvas.height - player.size - 10;
             safeZone.yMin = player.y - 50;
             safeZone.yMax = player.y + player.size;
+
+            console.log("Canvas resized to:", width, height); // Debug: Check size
         }
 
         window.addEventListener('resize', resizeCanvas);
@@ -162,6 +166,7 @@
                     console.log("Audio play failed:", error);
                 });
             }, 2000);
+            console.log("Music started"); // Debug: Check music
         }
 
         // Start game and music
@@ -173,6 +178,7 @@
                 spawnCoin();
                 spawnSpike();
             }
+            console.log("Game started"); // Debug: Confirm start
         }
 
         // Keyboard controls
@@ -209,12 +215,16 @@
         leftBtn.addEventListener('mousedown', () => {
             if (!gameStarted) startGame();
             else keys.left = true;
+            console.log("Left button pressed"); // Debug
         });
-        leftBtn.addEventListener('mouseup', () => keys.left = false);
+        leftBtn.addEventListener('mouseup', () => {
+            keys.left = false;
+        });
         leftBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
             if (!gameStarted) startGame();
             else keys.left = true;
+            console.log("Left button touched"); // Debug
         });
         leftBtn.addEventListener('touchend', (e) => {
             e.preventDefault();
@@ -224,22 +234,27 @@
         rightBtn.addEventListener('mousedown', () => {
             if (!gameStarted) startGame();
             else keys.right = true;
+            console.log("Right button pressed"); // Debug
         });
-        rightBtn.addEventListener('mouseup', () => keys.right = false);
+        rightBtn.addEventListener('mouseup', () => {
+            keys.right = false;
+        });
         rightBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
             if (!gameStarted) startGame();
             else keys.right = true;
+            console.log("Right button touched"); // Debug
         });
         rightBtn.addEventListener('touchend', (e) => {
             e.preventDefault();
             keys.right = false;
         });
 
-        // Canvas tap to start (mobile backup)
+        // Canvas tap to start
         canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
             if (!gameStarted) startGame();
+            console.log("Canvas tapped"); // Debug
         });
 
         // Spawn objects
