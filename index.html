@@ -6,7 +6,6 @@
     <style>
         body {
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
             height: 100vh;
@@ -19,33 +18,14 @@
             border: 1px solid white;
             background: #1a1a1a;
             width: 100%;
-            height: 80%;
+            height: 100%;
             max-width: 800px;
             max-height: 600px;
-        }
-        #controls {
-            position: fixed;
-            bottom: 10px;
-            width: 100%;
-            text-align: center;
-            z-index: 10;
-        }
-        button {
-            height: 100px;
-            width: 100px;
-            margin: 5px;
-            font-size: 18px;
-            background-color: #333;
-            color: white;
-            border: 2px solid white;
-            border-radius: 5px;
-            cursor: pointer;
-            touch-action: manipulation;
         }
         @media (max-width: 768px) {
             canvas {
                 width: 100vw;
-                height: 80vh; /* Leave space for buttons */
+                height: 100vh;
             }
         }
     </style>
@@ -53,12 +33,8 @@
 <body>
     <canvas id="gameCanvas"></canvas>
     <audio style="display: none;" src="assets/Whispers of Fire - The firewalkers.mp3" id="cantletgomusic"></audio>
-    <div id="controls">
-        <button id="leftBtn">Left</button>
-        <button id="rightBtn">Right</button>
-    </div>
     <script>
-        console.log("Script loaded"); // Debug: Check if script runs
+        console.log("Script loaded"); // Debug: Script start
 
         const aud = document.getElementById("cantletgomusic");
         aud.volume = 0.5;
@@ -67,14 +43,14 @@
 
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        console.log("Canvas context initialized:", ctx); // Debug: Check canvas
+        console.log("Canvas context:", ctx); // Debug: Canvas setup
 
         // Dynamically set canvas size
         function resizeCanvas() {
             const maxWidth = 800;
             const maxHeight = 600;
             const windowWidth = window.innerWidth;
-            const windowHeight = window.innerHeight * 0.8; // 80% for buttons
+            const windowHeight = window.innerHeight;
             const aspectRatio = maxWidth / maxHeight;
 
             let width = windowWidth;
@@ -99,7 +75,15 @@
             safeZone.yMin = player.y - 50;
             safeZone.yMax = player.y + player.size;
 
-            console.log("Canvas resized to:", width, height); // Debug: Check size
+            console.log("Canvas resized to:", width, height); // Debug: Size check
+            drawTestRect(); // Test rendering immediately
+        }
+
+        // Test drawing to confirm canvas works
+        function drawTestRect() {
+            ctx.fillStyle = 'red';
+            ctx.fillRect(10, 10, 50, 50);
+            console.log("Test rectangle drawn"); // Debug: Confirm draw
         }
 
         window.addEventListener('resize', resizeCanvas);
@@ -166,7 +150,7 @@
                     console.log("Audio play failed:", error);
                 });
             }, 2000);
-            console.log("Music started"); // Debug: Check music
+            console.log("Music started"); // Debug: Music check
         }
 
         // Start game and music
@@ -178,11 +162,12 @@
                 spawnCoin();
                 spawnSpike();
             }
-            console.log("Game started"); // Debug: Confirm start
+            console.log("Game started"); // Debug: Start confirmation
         }
 
-        // Keyboard controls
+        // Input handling
         document.addEventListener('keydown', (e) => {
+            console.log("Key pressed:", e.key); // Debug: Key input
             if (!gameStarted) {
                 startGame();
                 return;
@@ -208,53 +193,10 @@
             if (e.key === ' ') keys.jump = false;
         });
 
-        // Button controls
-        const leftBtn = document.getElementById('leftBtn');
-        const rightBtn = document.getElementById('rightBtn');
-
-        leftBtn.addEventListener('mousedown', () => {
-            if (!gameStarted) startGame();
-            else keys.left = true;
-            console.log("Left button pressed"); // Debug
-        });
-        leftBtn.addEventListener('mouseup', () => {
-            keys.left = false;
-        });
-        leftBtn.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            if (!gameStarted) startGame();
-            else keys.left = true;
-            console.log("Left button touched"); // Debug
-        });
-        leftBtn.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            keys.left = false;
-        });
-
-        rightBtn.addEventListener('mousedown', () => {
-            if (!gameStarted) startGame();
-            else keys.right = true;
-            console.log("Right button pressed"); // Debug
-        });
-        rightBtn.addEventListener('mouseup', () => {
-            keys.right = false;
-        });
-        rightBtn.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            if (!gameStarted) startGame();
-            else keys.right = true;
-            console.log("Right button touched"); // Debug
-        });
-        rightBtn.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            keys.right = false;
-        });
-
-        // Canvas tap to start
         canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
+            console.log("Canvas tapped"); // Debug: Tap input
             if (!gameStarted) startGame();
-            console.log("Canvas tapped"); // Debug
         });
 
         // Spawn objects
@@ -295,143 +237,142 @@
                 ctx.fillStyle = 'white';
                 ctx.font = '40px Arial';
                 ctx.fillText('Press any key or tap to start', canvas.width/2 - 200, canvas.height/2);
-                requestAnimationFrame(update);
-                return;
-            }
-
-            if (gameOver && !restartTriggered) {
-                restartTriggered = true;
-                aud.pause();
-                if (musicInterval) clearInterval(musicInterval);
-                musicInterval = null;
-                if (player.score > highScore) {
-                    highScore = player.score;
-                    localStorage.setItem('highScore', highScore);
-                }
-                setTimeout(() => {
-                    location.reload();
-                }, 500);
-            }
-
-            if (gameOver) return;
-
-            // Player movement
-            if (keys.right && player.x < canvas.width - player.size) {
-                player.x += player.speed;
-            }
-            if (keys.left && player.x > 0) {
-                player.x -= player.speed;
-            }
-
-            // Apply velocity
-            player.velocityY += gravity;
-            player.x += player.velocityX;
-            player.y += player.velocityY;
-
-            // Friction for horizontal velocity
-            player.velocityX *= 0.9;
-
-            // Wall collision and wall jumping
-            player.onWall = false;
-            for (let wall of walls) {
-                if (checkCollision(player, wall)) {
-                    player.onWall = true;
-                    player.jumping = false;
-                    player.velocityY = 0;
-                    player.x = wall.x === 0 ? wall.x + wall.width : wall.x - player.size;
-                }
-            }
-
-            // Rotate when jumping or on wall
-            if (player.jumping || player.onWall) {
-                player.rotation += rotationSpeed;
+                console.log("Start screen rendered"); // Debug: Pre-start render
             } else {
-                player.rotation = 0;
-            }
+                if (gameOver && !restartTriggered) {
+                    restartTriggered = true;
+                    aud.pause();
+                    if (musicInterval) clearInterval(musicInterval);
+                    musicInterval = null;
+                    if (player.score > highScore) {
+                        highScore = player.score;
+                        localStorage.setItem('highScore', highScore);
+                    }
+                    setTimeout(() => {
+                        location.reload();
+                    }, 500);
+                }
 
-            // Ground collision
-            if (player.y > canvas.height - player.size) {
-                player.y = canvas.height - player.size;
-                player.velocityY = 0;
-                player.jumping = false;
+                if (gameOver) return;
+
+                // Player movement
+                if (keys.right && player.x < canvas.width - player.size) {
+                    player.x += player.speed;
+                }
+                if (keys.left && player.x > 0) {
+                    player.x -= player.speed;
+                }
+
+                // Apply velocity
+                player.velocityY += gravity;
+                player.x += player.velocityX;
+                player.y += player.velocityY;
+
+                // Friction for horizontal velocity
+                player.velocityX *= 0.9;
+
+                // Wall collision and wall jumping
                 player.onWall = false;
-            }
-
-            // Trail effect update
-            trail.push({ x: player.x, y: player.y, alpha: 1 });
-            for (let i = trail.length - 1; i >= 0; i--) {
-                trail[i].alpha -= 0.05;
-                if (trail[i].alpha <= 0) trail.splice(i, 1);
-            }
-
-            // Coin collection
-            for (let i = coins.length - 1; i >= 0; i--) {
-                if (checkCollision(player, coins[i])) {
-                    coins.splice(i, 1);
-                    player.score += 1;
-                    spawnCoin();
+                for (let wall of walls) {
+                    if (checkCollision(player, wall)) {
+                        player.onWall = true;
+                        player.jumping = false;
+                        player.velocityY = 0;
+                        player.x = wall.x === 0 ? wall.x + wall.width : wall.x - player.size;
+                    }
                 }
-            }
 
-            // Spike collision
-            for (let spike of spikes) {
-                if (checkCollision(player, spike)) {
-                    gameOver = true;
+                // Rotate when jumping or on wall
+                if (player.jumping || player.onWall) {
+                    player.rotation += rotationSpeed;
+                } else {
+                    player.rotation = 0;
                 }
-            }
 
-            // Drawing
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+                // Ground collision
+                if (player.y > canvas.height - player.size) {
+                    player.y = canvas.height - player.size;
+                    player.velocityY = 0;
+                    player.jumping = false;
+                    player.onWall = false;
+                }
 
-            // Draw trail
-            ctx.fillStyle = 'rgba(255, 0, 255, 0.2)';
-            for (let t of trail) {
-                ctx.globalAlpha = t.alpha;
-                ctx.fillRect(t.x, t.y, player.size, player.size);
-            }
-            ctx.globalAlpha = 1;
+                // Trail effect update
+                trail.push({ x: player.x, y: player.y, alpha: 1 });
+                for (let i = trail.length - 1; i >= 0; i--) {
+                    trail[i].alpha -= 0.05;
+                    if (trail[i].alpha <= 0) trail.splice(i, 1);
+                }
 
-            // Draw player (rotating white square)
-            ctx.save();
-            ctx.translate(player.x + player.size/2, player.y + player.size/2);
-            ctx.rotate(player.rotation);
-            ctx.fillStyle = 'white';
-            ctx.fillRect(-player.size/2, -player.size/2, player.size, player.size);
-            ctx.restore();
+                // Coin collection
+                for (let i = coins.length - 1; i >= 0; i--) {
+                    if (checkCollision(player, coins[i])) {
+                        coins.splice(i, 1);
+                        player.score += 1;
+                        spawnCoin();
+                    }
+                }
 
-            // Draw coins (yellow circles)
-            ctx.fillStyle = 'yellow';
-            for (let coin of coins) {
-                ctx.beginPath();
-                ctx.arc(coin.x + coin.size/2, coin.y + coin.size/2, coin.size/2, 0, Math.PI * 2);
-                ctx.fill();
-            }
+                // Spike collision
+                for (let spike of spikes) {
+                    if (checkCollision(player, spike)) {
+                        gameOver = true;
+                    }
+                }
 
-            // Draw spikes (red triangles)
-            ctx.fillStyle = 'red';
-            for (let spike of spikes) {
-                ctx.beginPath();
-                ctx.moveTo(spike.x + spike.size/2, spike.y - spike.size);
-                ctx.lineTo(spike.x, spike.y);
-                ctx.lineTo(spike.x + spike.size, spike.y);
-                ctx.fill();
-            }
+                // Drawing
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Draw score and high score
-            ctx.fillStyle = 'white';
-            ctx.font = '20px Arial';
-            ctx.fillText(`Score: ${player.score}`, 10, 30);
-            ctx.fillText(`High Score: ${highScore}`, 10, 60);
+                // Draw trail
+                ctx.fillStyle = 'rgba(255, 0, 255, 0.2)';
+                for (let t of trail) {
+                    ctx.globalAlpha = t.alpha;
+                    ctx.fillRect(t.x, t.y, player.size, player.size);
+                }
+                ctx.globalAlpha = 1;
 
-            // Game over text
-            if (gameOver) {
+                // Draw player (rotating white square)
+                ctx.save();
+                ctx.translate(player.x + player.size/2, player.y + player.size/2);
+                ctx.rotate(player.rotation);
                 ctx.fillStyle = 'white';
-                ctx.font = '40px Arial';
-                ctx.fillText('Game Over!', canvas.width/2 - 100, canvas.height/2);
+                ctx.fillRect(-player.size/2, -player.size/2, player.size, player.size);
+                ctx.restore();
+
+                // Draw coins (yellow circles)
+                ctx.fillStyle = 'yellow';
+                for (let coin of coins) {
+                    ctx.beginPath();
+                    ctx.arc(coin.x + coin.size/2, coin.y + coin.size/2, coin.size/2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Draw spikes (red triangles)
+                ctx.fillStyle = 'red';
+                for (let spike of spikes) {
+                    ctx.beginPath();
+                    ctx.moveTo(spike.x + spike.size/2, spike.y - spike.size);
+                    ctx.lineTo(spike.x, spike.y);
+                    ctx.lineTo(spike.x + spike.size, spike.y);
+                    ctx.fill();
+                }
+
+                // Draw score and high score
+                ctx.fillStyle = 'white';
                 ctx.font = '20px Arial';
-                const restartText = 'Restarting...';
-                const textWidth = ctx.measureText(restartText).width;
-                ctx.fillText(restartText, canvas.width/2 - textWidth/2, canvas.height/2 + 40);
+                ctx.fillText(`Score: ${player.score}`, 10, 30);
+                ctx.fillText(`High Score: ${highScore}`, 10, 60);
+
+                // Game over text
+                if (gameOver) {
+                    ctx.fillStyle = 'white';
+                    ctx.font = '40px Arial';
+                    ctx.fillText('Game Over!', canvas.width/2 - 100, canvas.height/2);
+                    ctx.font = '20px Arial';
+                    const restartText = 'Restarting...';
+                    const textWidth = ctx.measureText(restartText).width;
+                    ctx.fillText(restartText, canvas.width/2 - textWidth/2, canvas.height/2 + 40);
+                }
             }
 
             requestAnimationFrame(update);
