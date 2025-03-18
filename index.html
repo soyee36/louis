@@ -2,8 +2,11 @@
 <html>
 <head>
     <title>Square Collector</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
+        canvas {
+            border: 1px solid white;
+            background: #1a1a1a;
+        }
         body {
             display: flex;
             justify-content: center;
@@ -12,113 +15,48 @@
             margin: 0;
             font-family: Arial, sans-serif;
             background: #1a1a1a;
-            overflow: hidden;
-        }
-        canvas {
-            border: 1px solid white;
-            background: #1a1a1a;
-            width: 100%;
-            height: 100%;
-            max-width: 800px;
-            max-height: 600px;
-        }
-        #controls {
-            display: none;
-            position: fixed;
-            bottom: 10px;
-            width: 100%;
-            text-align: center;
-            z-index: 10;
-        }
-        .control-btn {
-            padding: 15px 30px;
-            margin: 5px;
-            font-size: 18px;
-            background-color: #333;
-            color: white;
-            border: 2px solid white;
-            border-radius: 5px;
-            cursor: pointer;
-            touch-action: manipulation;
-        }
-
-        /* Mobile adjustments */
-        @media (max-width: 768px) {
-            canvas {
-                height: 70vh;
-            }
-            #controls {
-                display: flex;
-                justify-content: space-around;
-                align-items: center;
-            }
-        }
-
-        @media (max-height: 500px) {
-            canvas {
-                height: 60vh;
-            }
         }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas"></canvas>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
     <audio style="display: none;" src="CantLetGo.mp3" id="cantletgomusic"></audio>
-    <div id="controls">
-        <button class="control-btn" id="leftBtn">Left</button>
-        <button class="control-btn" id="jumpBtn">Jump</button>
-        <button class="control-btn" id="rightBtn">Right</button>
-    </div>
     <script>
         const aud = document.getElementById("cantletgomusic");
         aud.volume = 0.5;
         let musicInterval = null;
         let gameStarted = false;
 
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-
-        // Dynamically set canvas size
-        function resizeCanvas() {
-            const maxWidth = 800;
-            const maxHeight = 600;
-            const windowWidth = window.innerWidth;
-            const windowHeight = window.innerHeight;
-            const aspectRatio = maxWidth / maxHeight;
-
-            let width = windowWidth;
-            let height = windowHeight;
-
-            if (windowWidth / windowHeight > aspectRatio) {
-                width = Math.min(maxWidth, windowHeight * aspectRatio);
-                height = width / aspectRatio;
-            } else {
-                height = Math.min(maxHeight, windowWidth / aspectRatio);
-                width = height * aspectRatio;
-            }
-
-            if (windowWidth <= 768) height *= 0.7;
-            if (windowHeight <= 500) height *= 0.85;
-
-            canvas.width = width;
-            canvas.height = height;
-
-            walls[0].height = canvas.height;
-            walls[1].x = canvas.width - 1;
-            walls[1].height = canvas.height;
-
-            player.y = canvas.height - player.size - 10;
-            safeZone.yMin = player.y - 50;
-            safeZone.yMax = player.y + player.size;
+        // Function to start music looping every 2 seconds
+        function startMusicLoop() {
+            aud.play().catch(error => {
+                console.log("Audio play failed:", error);
+            });
+            musicInterval = setInterval(() => {
+                aud.currentTime = 0; // Reset to start
+                aud.play().catch(error => {
+                    console.log("Audio play failed:", error);
+                });
+            }, 2000); // Restart every 2 seconds
         }
 
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
+        // Start game and music
+        function startGame() {
+            gameStarted = true;
+            startMusicLoop();
+            for (let i = 0; i < 5; i++) {
+                spawnCoin();
+                spawnSpike();
+            }
+        }
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
 
         // Player properties
         const player = {
             x: 50,
-            y: canvas.height - 40,
+            y: 500,
             size: 30,
             speed: 5,
             velocityX: 0,
@@ -154,8 +92,8 @@
 
         // Walls (invisible boundaries)
         const walls = [
-            { x: 0, y: 0, width: 1, height: canvas.height },
-            { x: canvas.width - 1, y: 0, width: 1, height: canvas.height }
+            { x: 0, y: 0, width: 1, height: canvas.height },  // Left wall
+            { x: canvas.width - 1, y: 0, width: 1, height: canvas.height }  // Right wall
         ];
 
         // Controls
@@ -165,37 +103,9 @@
             jump: false
         };
 
-        // Function to start music looping every 2 seconds
-        function startMusicLoop() {
-            aud.play().catch(error => {
-                console.log("Audio play failed:", error);
-            });
-            musicInterval = setInterval(() => {
-                aud.currentTime = 0;
-                aud.play().catch(error => {
-                    console.log("Audio play failed:", error);
-                });
-            }, 2000);
-        }
-
-        // Start game and music
-        function startGame() {
-            if (gameStarted) return;
-            console.log("Game starting..."); // Debug log
-            gameStarted = true;
-            startMusicLoop();
-            for (let i = 0; i < 5; i++) {
-                spawnCoin();
-                spawnSpike();
-            }
-        }
-
-        // Keyboard controls
+        // Event listeners for controls (only active after game starts)
         document.addEventListener('keydown', (e) => {
-            if (!gameStarted) {
-                startGame();
-                return;
-            }
+            if (!gameStarted) return; // Ignore controls until game starts
             if (e.key === 'd' || e.key === 'D') keys.right = true;
             if (e.key === 'a' || e.key === 'A') keys.left = true;
             if (e.key === ' ' && (!player.jumping || player.onWall)) {
@@ -217,57 +127,8 @@
             if (e.key === ' ') keys.jump = false;
         });
 
-        // Touch controls
-        const leftBtn = document.getElementById('leftBtn');
-        const rightBtn = document.getElementById('rightBtn');
-        const jumpBtn = document.getElementById('jumpBtn');
-
-        leftBtn.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            console.log("Left button touched"); // Debug log
-            if (gameStarted) keys.left = true;
-        });
-        leftBtn.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            keys.left = false;
-        });
-        rightBtn.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            console.log("Right button touched"); // Debug log
-            if (gameStarted) keys.right = true;
-        });
-        rightBtn.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            keys.right = false;
-        });
-        jumpBtn.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            console.log("Jump button touched"); // Debug log
-            if (!gameStarted) {
-                startGame();
-            } else if (!player.jumping || player.onWall) {
-                keys.jump = true;
-                if (player.onWall) {
-                    player.velocityY = wallJumpForceY;
-                    player.velocityX = player.x < canvas.width / 2 ? wallJumpForceX : -wallJumpForceX;
-                    player.onWall = false;
-                } else if (!player.jumping) {
-                    player.jumping = true;
-                    player.velocityY = jumpForce;
-                }
-            }
-        });
-        jumpBtn.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            keys.jump = false;
-        });
-
-        // Add a canvas tap to start (backup)
-        canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            console.log("Canvas touched"); // Debug log
-            if (!gameStarted) startGame();
-        });
+        // Single-use listener to start the game
+        document.addEventListener('keydown', startGame, { once: true });
 
         // Spawn objects
         function spawnCoin() {
@@ -306,7 +167,7 @@
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.fillStyle = 'white';
                 ctx.font = '40px Arial';
-                ctx.fillText('Press any key or tap to start', canvas.width/2 - 200, canvas.height/2);
+                ctx.fillText('Press any key to start', canvas.width/2 - 150, canvas.height/2);
                 requestAnimationFrame(update);
                 return;
             }
