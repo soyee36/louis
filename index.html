@@ -45,7 +45,7 @@
         /* Mobile adjustments */
         @media (max-width: 768px) {
             canvas {
-                height: 70vh; /* Leave space for controls */
+                height: 70vh;
             }
             #controls {
                 display: flex;
@@ -97,25 +97,23 @@
                 width = height * aspectRatio;
             }
 
-            if (windowWidth <= 768) height *= 0.7; // Adjust for mobile controls
-            if (windowHeight <= 500) height *= 0.85; // Adjust for short screens
+            if (windowWidth <= 768) height *= 0.7;
+            if (windowHeight <= 500) height *= 0.85;
 
             canvas.width = width;
             canvas.height = height;
 
-            // Update walls to match new canvas size
             walls[0].height = canvas.height;
             walls[1].x = canvas.width - 1;
             walls[1].height = canvas.height;
 
-            // Adjust player starting position
             player.y = canvas.height - player.size - 10;
             safeZone.yMin = player.y - 50;
             safeZone.yMax = player.y + player.size;
         }
 
         window.addEventListener('resize', resizeCanvas);
-        resizeCanvas(); // Initial call
+        resizeCanvas();
 
         // Player properties
         const player = {
@@ -183,6 +181,7 @@
         // Start game and music
         function startGame() {
             if (gameStarted) return;
+            console.log("Game starting..."); // Debug log
             gameStarted = true;
             startMusicLoop();
             for (let i = 0; i < 5; i++) {
@@ -225,6 +224,7 @@
 
         leftBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
+            console.log("Left button touched"); // Debug log
             if (gameStarted) keys.left = true;
         });
         leftBtn.addEventListener('touchend', (e) => {
@@ -233,6 +233,7 @@
         });
         rightBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
+            console.log("Right button touched"); // Debug log
             if (gameStarted) keys.right = true;
         });
         rightBtn.addEventListener('touchend', (e) => {
@@ -241,6 +242,7 @@
         });
         jumpBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
+            console.log("Jump button touched"); // Debug log
             if (!gameStarted) {
                 startGame();
             } else if (!player.jumping || player.onWall) {
@@ -258,6 +260,13 @@
         jumpBtn.addEventListener('touchend', (e) => {
             e.preventDefault();
             keys.jump = false;
+        });
+
+        // Add a canvas tap to start (backup)
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            console.log("Canvas touched"); // Debug log
+            if (!gameStarted) startGame();
         });
 
         // Spawn objects
