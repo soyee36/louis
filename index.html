@@ -14,6 +14,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            height: 100vh; /* Ensure full height */
         }
     </style>
 </head>
@@ -35,6 +36,7 @@
 
         // Start game and music
         function startGame() {
+            if (gameStarted) return; // Prevent multiple starts
             gameStarted = true;
             startMusicLoop();
             for (let i = 0; i < 5; i++) {
@@ -96,9 +98,12 @@
             jump: false
         };
 
-        // Event listeners for controls (only active after game starts)
+        // Event listeners for controls
         document.addEventListener('keydown', (e) => {
-            if (!gameStarted) return; // Ignore controls until game starts
+            if (!gameStarted) {
+                startGame();
+                return;
+            }
             if (e.key === 'd' || e.key === 'D') keys.right = true;
             if (e.key === 'a' || e.key === 'A') keys.left = true;
             if (e.key === ' ' && (!player.jumping || player.onWall)) {
@@ -120,8 +125,28 @@
             if (e.key === ' ') keys.jump = false;
         });
 
-        // Single-use listener to start the game
-        document.addEventListener('keydown', startGame, { once: true });
+        // Mouse click to start or jump
+        canvas.addEventListener('mousedown', (e) => {
+            if (!gameStarted) {
+                startGame();
+                return;
+            }
+            if (!player.jumping || player.onWall) {
+                keys.jump = true;
+                if (player.onWall) {
+                    player.velocityY = wallJumpForceY;
+                    player.velocityX = player.x < canvas.width / 2 ? wallJumpForceX : -wallJumpForceX;
+                    player.onWall = false;
+                } else if (!player.jumping) {
+                    player.jumping = true;
+                    player.velocityY = jumpForce;
+                }
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            keys.jump = false;
+        });
 
         // Spawn objects
         function spawnCoin() {
@@ -160,7 +185,7 @@
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.fillStyle = 'white';
                 ctx.font = '40px Arial';
-                ctx.fillText('Press any key to start', canvas.width/2 - 150, canvas.height/2);
+                ctx.fillText('Press any key or click to start', canvas.width/2 - 180, canvas.height/2);
                 requestAnimationFrame(update);
                 return;
             }
