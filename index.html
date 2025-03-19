@@ -27,8 +27,6 @@
             display: flex;
             justify-content: center;
             gap: 20px; /* Space between buttons */
-            bottom: 0;
-            left: 0;
         }
         button {
             padding: 15px 30px;
@@ -42,6 +40,11 @@
         }
         button:active {
             background-color: #555; /* Visual feedback on press */
+        }
+        @media (min-width: 768px) and (cursor: fine) {
+            #controls {
+                display: none;
+            }
         }
     </style>
 </head>
@@ -58,7 +61,7 @@
         let musicInterval = null;
         let gameStarted = false;
 
-        // Function to start music looping every 2 seconds
+        // Function to start music looping
         function startMusicLoop() {
             aud.play().catch(error => {
                 console.log("Audio play failed:", error);
