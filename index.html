@@ -3,24 +3,53 @@
 <head>
     <title>Square Dash</title>
     <style>
-        canvas {
-            border: 1px solid white;
-            background: #1a1a1a;
-        }
         body {
             margin: 0;
             font-family: Arial, sans-serif;
             background: #1a1a1a;
             display: flex;
+            flex-direction: column; /* Stack canvas and controls vertically */
             justify-content: center;
             align-items: center;
-            height: 100vh; /* Ensure full height */
+            height: 100vh;
+            overflow: hidden; /* Prevent scrolling */
+        }
+        canvas {
+            border: 1px solid white;
+            background: #1a1a1a;
+            width: 800px;
+            height: 600px;
+            max-width: 100%; /* Fit smaller screens */
+            max-height: 80vh; /* Leave space for buttons */
+        }
+        #controls {
+            margin-top: 10px; /* Space between canvas and buttons */
+            display: flex;
+            justify-content: center;
+            gap: 20px; /* Space between buttons */
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 18px;
+            background-color: #333;
+            color: white;
+            border: 2px solid white;
+            border-radius: 5px;
+            cursor: pointer;
+            touch-action: manipulation; /* Prevent zoom on mobile */
+        }
+        button:active {
+            background-color: #555; /* Visual feedback on press */
         }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <canvas id="gameCanvas"></canvas>
     <audio style="display: none;" src="Whispers of Fire - The firewalkers.mp3" id="cantletgomusic" loop></audio>
+    <div id="controls">
+        <button id="leftBtn">Left</button>
+        <button id="rightBtn">Right</button>
+    </div>
     <script>
         const aud = document.getElementById("cantletgomusic");
         aud.volume = 0.5;
@@ -47,6 +76,10 @@
 
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        
+        // Set initial canvas size (will be adjusted dynamically if needed)
+        canvas.width = 800;
+        canvas.height = 600;
 
         // Player properties
         const player = {
@@ -98,7 +131,7 @@
             jump: false
         };
 
-        // Event listeners for controls
+        // Event listeners for keyboard controls
         document.addEventListener('keydown', (e) => {
             if (!gameStarted) {
                 startGame();
@@ -146,6 +179,44 @@
 
         canvas.addEventListener('mouseup', () => {
             keys.jump = false;
+        });
+
+        // Button controls for left and right
+        const leftBtn = document.getElementById('leftBtn');
+        const rightBtn = document.getElementById('rightBtn');
+
+        leftBtn.addEventListener('mousedown', () => {
+            if (!gameStarted) startGame();
+            else keys.left = true;
+        });
+        leftBtn.addEventListener('mouseup', () => {
+            keys.left = false;
+        });
+        leftBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (!gameStarted) startGame();
+            else keys.left = true;
+        });
+        leftBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            keys.left = false;
+        });
+
+        rightBtn.addEventListener('mousedown', () => {
+            if (!gameStarted) startGame();
+            else keys.right = true;
+        });
+        rightBtn.addEventListener('mouseup', () => {
+            keys.right = false;
+        });
+        rightBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (!gameStarted) startGame();
+            else keys.right = true;
+        });
+        rightBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            keys.right = false;
         });
 
         // Spawn objects
