@@ -264,7 +264,7 @@
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.fillStyle = 'white';
                 ctx.font = '40px Arial';
-                ctx.fillText('Press any key or click to start', canvas.width/2 - 180, canvas.height/2);
+                ctx.fillText('CLICK TO START', canvas.width/2 - 180, canvas.height/2);
                 requestAnimationFrame(update);
                 return;
             }
@@ -361,7 +361,7 @@
             }
             ctx.globalAlpha = 1;
 
-            // Draw player (rotating white square)
+            // Draw player (rotating square)
             ctx.save();
             ctx.translate(player.x + player.size/2, player.y + player.size/2);
             ctx.rotate(player.rotation);
@@ -378,7 +378,7 @@
             }
 
             // Draw spikes (red triangles)
-            ctx.fillStyle = 'red';
+            ctx.fillStyle = 'blue';
             for (let spike of spikes) {
                 ctx.beginPath();
                 ctx.moveTo(spike.x + spike.size/2, spike.y - spike.size);
