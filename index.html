@@ -8,24 +8,25 @@
             font-family: Arial, sans-serif;
             background: #1a1a1a;
             display: flex;
-            flex-direction: column; /* Stack canvas and controls vertically */
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             height: 100vh;
+            overflow: hidden;
         }
         canvas {
             border: 1px solid white;
             background: #1a1a1a;
             width: 800px;
             height: 600px;
-            max-width: 100%; /* Fit smaller screens */
-            max-height: 80vh; /* Leave space for buttons */
+            max-width: 100%;
+            max-height: 80vh;
         }
         #controls {
-            margin-top: 10px; /* Space between canvas and buttons */
+            margin-top: 10px;
             display: flex;
             justify-content: center;
-            gap: 20px; /* Space between buttons */
+            gap: 20px;
         }
         button {
             padding: 15px 30px;
@@ -35,12 +36,12 @@
             border: 2px solid white;
             border-radius: 5px;
             cursor: pointer;
-            touch-action: manipulation; /* Prevent zoom on mobile */
+            touch-action: manipulation;
             width: 200px;
             height: 200px;
         }
         button:active {
-            background-color: #555; /* Visual feedback on press */
+            background-color: #555;
         }
         @media (pointer: fine) {
             #controls {
@@ -50,7 +51,6 @@
     </style>
 </head>
 <body>
-    <!-- Wrap the whole thing in a comment (if you dare) -->
     <canvas id="gameCanvas"></canvas>
     <audio style="display: none;" src="Whispers of Fire - The firewalkers.mp3" id="cantletgomusic" loop></audio>
     <div id="controls">
@@ -61,19 +61,44 @@
     <script>
         const aud = document.getElementById("cantletgomusic");
         aud.volume = 0.5;
-        let musicInterval = null;
         let gameStarted = false;
+        let gameOver = false;
+        let restartTriggered = false;
+        let shopOpen = false;
 
-        // Function to start music looping
-        function startMusicLoop() {
-            aud.play().catch(error => {
-                console.log("Audio play failed:", error);
+        // Shop data
+        let totalCoins = localStorage.getItem('totalCoins') ? parseInt(localStorage.getItem('totalCoins')) : 0;
+        const shopItems = {
+            cubes: [
+                { name: "HOW Cube", cost: 0, unlocked: true, equipped: true, color: 'white' },
+                { name: "Neon Green Cube", cost: 50, unlocked: false, equipped: false, color: '#00FF00' },
+                { name: "Neon Blue Cube", cost: 50, unlocked: false, equipped: false, color: '#0000FF' },
+                { name: "Fire Cube", cost: 100, unlocked: false, equipped: false, color: '#FF4500' },
+                { name: "Gold Cube", cost: 200, unlocked: false, equipped: false, color: '#FFD700' }
+            ],
+            trails: [
+                { name: "Default Trail", cost: 0, unlocked: true, equipped: true, color: 'rgba(255, 0, 255, 0.2)' },
+                { name: "Red Trail", cost: 30, unlocked: false, equipped: false, color: 'rgba(255, 0, 0, 0.2)' },
+                { name: "Blue Trail", cost: 30, unlocked: false, equipped: false, color: 'rgba(0, 0, 255, 0.2)' },
+                { name: "Rainbow Trail", cost: 100, unlocked: false, equipped: false, color: 'rainbow' }
+            ]
+        };
+
+        // Load saved shop state
+        const savedShop = localStorage.getItem('shopItems');
+        if (savedShop) {
+            const parsedShop = JSON.parse(savedShop);
+            Object.keys(parsedShop).forEach(category => {
+                shopItems[category].forEach((item, index) => {
+                    item.unlocked = parsedShop[category][index].unlocked || item.unlocked;
+                    item.equipped = parsedShop[category][index].equipped || item.equipped;
+                });
             });
         }
 
         // Start game and music
         function startGame() {
-            if (gameStarted) return; // Prevent multiple starts
+            if (gameStarted) return;
             gameStarted = true;
             startMusicLoop();
             for (let i = 0; i < 5; i++) {
@@ -82,10 +107,13 @@
             }
         }
 
+        // Function to start music
+        function startMusicLoop() {
+            aud.play().catch(error => console.log("Audio play failed:", error));
+        }
+
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        
-        // Set initial canvas size (will be adjusted dynamically if needed)
         canvas.width = 800;
         canvas.height = 600;
 
@@ -100,7 +128,8 @@
             jumping: false,
             onWall: false,
             score: 0,
-            rotation: 0
+            rotation: 0,
+            cubeColor: shopItems.cubes.find(cube => cube.equipped).color // Default to equipped cube
         };
 
         // Game objects
@@ -112,8 +141,6 @@
         const wallJumpForceY = -10;
         const wallJumpForceX = 8;
         const rotationSpeed = 0.2;
-        let gameOver = false;
-        let restartTriggered = false;
 
         // High score management
         let highScore = localStorage.getItem('highScore') ? parseInt(localStorage.getItem('highScore')) : 0;
@@ -128,8 +155,8 @@
 
         // Walls (invisible boundaries)
         const walls = [
-            { x: 0, y: 0, width: 1, height: canvas.height },  // Left wall
-            { x: canvas.width - 1, y: 0, width: 1, height: canvas.height }  // Right wall
+            { x: 0, y: 0, width: 1, height: canvas.height },
+            { x: canvas.width - 1, y: 0, width: 1, height: canvas.height }
         ];
 
         // Controls
@@ -139,8 +166,25 @@
             jump: false
         };
 
+        // Shop button positions
+        const shopBtn = { x: canvas.width - 100, y: 10, width: 80, height: 40 };
+        const gameOverShopBtn = { x: canvas.width / 2 - 40, y: canvas.height / 2 + 80, width: 80, height: 40 };
+
+        // Shop menu properties
+        const shopMenu = {
+            x: canvas.width / 2 - 200,
+            y: canvas.height / 2 - 150,
+            width: 400,
+            height: 300,
+            items: []
+        };
+
         // Event listeners for keyboard controls
         document.addEventListener('keydown', (e) => {
+            if (shopOpen) {
+                if (e.key === 'Escape') closeShop();
+                return;
+            }
             if (!gameStarted) {
                 startGame();
                 return;
@@ -166,12 +210,32 @@
             if (e.key === ' ') keys.jump = false;
         });
 
-        // Mouse click to start or jump
+        // Mouse click handling
         canvas.addEventListener('mousedown', (e) => {
+            if (shopOpen) {
+                handleShopClick(e);
+                return;
+            }
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
             if (!gameStarted) {
                 startGame();
                 return;
             }
+
+            // Check shop button clicks
+            if (gameStarted && !gameOver && x >= shopBtn.x && x <= shopBtn.x + shopBtn.width && y >= shopBtn.y && y <= shopBtn.y + shopBtn.height) {
+                openShop();
+                return;
+            }
+            if (gameOver && x >= gameOverShopBtn.x && x <= gameOverShopBtn.x + gameOverShopBtn.width && y >= gameOverShopBtn.y && y <= gameOverShopBtn.y + gameOverShopBtn.height) {
+                openShop();
+                return;
+            }
+
+            // Jump logic
             if (!player.jumping || player.onWall) {
                 keys.jump = true;
                 if (player.onWall) {
@@ -186,7 +250,7 @@
         });
 
         canvas.addEventListener('mouseup', () => {
-            keys.jump = false;
+            if (!shopOpen) keys.jump = false;
         });
 
         // Button controls for left and right
@@ -197,9 +261,7 @@
             if (!gameStarted) startGame();
             else keys.left = true;
         });
-        leftBtn.addEventListener('mouseup', () => {
-            keys.left = false;
-        });
+        leftBtn.addEventListener('mouseup', () => keys.left = false);
         leftBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
             if (!gameStarted) startGame();
@@ -214,9 +276,7 @@
             if (!gameStarted) startGame();
             else keys.right = true;
         });
-        rightBtn.addEventListener('mouseup', () => {
-            keys.right = false;
-        });
+        rightBtn.addEventListener('mouseup', () => keys.right = false);
         rightBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
             if (!gameStarted) startGame();
@@ -226,6 +286,99 @@
             e.preventDefault();
             keys.right = false;
         });
+
+        // Shop functions
+        function openShop() {
+            shopOpen = true;
+            renderShopMenu();
+        }
+
+        function closeShop() {
+            shopOpen = false;
+            saveShopState();
+        }
+
+        function saveShopState() {
+            localStorage.setItem('shopItems', JSON.stringify(shopItems));
+            localStorage.setItem('totalCoins', totalCoins);
+            player.cubeColor = shopItems.cubes.find(cube => cube.equipped).color;
+            trailColor = shopItems.trails.find(trail => trail.equipped).color;
+        }
+
+        function renderShopMenu() {
+            shopMenu.items = [];
+            let yOffset = 60;
+            ctx.fillStyle = '#333';
+            ctx.fillRect(shopMenu.x, shopMenu.y, shopMenu.width, shopMenu.height);
+            ctx.fillStyle = 'white';
+            ctx.font = '30px Arial';
+            ctx.fillText('Shop', shopMenu.x + 170, shopMenu.y + 40);
+            ctx.font = '20px Arial';
+            ctx.fillText(`Coins: ${totalCoins}`, shopMenu.x + 10, shopMenu.y + 40);
+
+            // Cubes
+            ctx.fillText('Cubes:', shopMenu.x + 10, shopMenu.y + yOffset);
+            yOffset += 30;
+            shopItems.cubes.forEach((item, index) => {
+                const text = `${item.name} - ${item.cost} coins${item.unlocked ? (item.equipped ? ' (Equipped)' : ' (Unlocked)') : ''}`;
+                ctx.fillStyle = item.unlocked ? '#AAAAAA' : 'white';
+                ctx.fillText(text, shopMenu.x + 20, shopMenu.y + yOffset);
+                shopMenu.items.push({ category: 'cubes', index, x: shopMenu.x + 20, y: shopMenu.y + yOffset - 20, width: ctx.measureText(text).width, height: 25 });
+                yOffset += 30;
+            });
+
+            // Trails
+            ctx.fillText('Trails:', shopMenu.x + 10, shopMenu.y + yOffset);
+            yOffset += 30;
+            shopItems.trails.forEach((item, index) => {
+                const text = `${item.name} - ${item.cost} coins${item.unlocked ? (item.equipped ? ' (Equipped)' : ' (Unlocked)') : ''}`;
+                ctx.fillStyle = item.unlocked ? '#AAAAAA' : 'white';
+                ctx.fillText(text, shopMenu.x + 20, shopMenu.y + yOffset);
+                shopMenu.items.push({ category: 'trails', index, x: shopMenu.x + 20, y: shopMenu.y + yOffset - 20, width: ctx.measureText(text).width, height: 25 });
+                yOffset += 30;
+            });
+
+            // Close button
+            const closeBtn = { x: shopMenu.x + shopMenu.width / 2 - 40, y: shopMenu.y + shopMenu.height - 50, width: 80, height: 40 };
+            ctx.fillStyle = '#FF0000';
+            ctx.fillRect(closeBtn.x, closeBtn.y, closeBtn.width, closeBtn.height);
+            ctx.fillStyle = 'white';
+            ctx.fillText('Close', closeBtn.x + 15, closeBtn.y + 25);
+            shopMenu.closeBtn = closeBtn;
+        }
+
+        function handleShopClick(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            if (x >= shopMenu.closeBtn.x && x <= shopMenu.closeBtn.x + shopMenu.closeBtn.width && 
+                y >= shopMenu.closeBtn.y && y <= shopMenu.closeBtn.y + shopMenu.closeBtn.height) {
+                closeShop();
+                return;
+            }
+
+            shopMenu.items.forEach(item => {
+                if (x >= item.x && x <= item.x + item.width && y >= item.y && y <= item.y + item.height) {
+                    const shopItem = shopItems[item.category][item.index];
+                    if (!shopItem.unlocked && totalCoins >= shopItem.cost) {
+                        totalCoins -= shopItem.cost;
+                        shopItem.unlocked = true;
+                        shopItem.equipped = true;
+                        shopItems[item.category].forEach(i => {
+                            if (i !== shopItem) i.equipped = false;
+                        });
+                        renderShopMenu();
+                    } else if (shopItem.unlocked && !shopItem.equipped) {
+                        shopItem.equipped = true;
+                        shopItems[item.category].forEach(i => {
+                            if (i !== shopItem) i.equipped = false;
+                        });
+                        renderShopMenu();
+                    }
+                }
+            });
+        }
 
         // Spawn objects
         function spawnCoin() {
@@ -242,12 +395,7 @@
                 x = Math.random() * (canvas.width - 20);
                 y = canvas.height - 20;
             } while (x + 20 > safeZone.xMin && x < safeZone.xMax && y + 20 > safeZone.yMin && y < safeZone.yMax);
-            
-            spikes.push({
-                x: x,
-                y: y,
-                size: 20
-            });
+            spikes.push({ x, y, size: 20 });
         }
 
         // Collision detection
@@ -257,6 +405,8 @@
                     rect1.y < rect2.y + (rect2.height || rect2.size) &&
                     rect1.y + rect1.size > rect2.y);
         }
+
+        let trailColor = shopItems.trails.find(trail => trail.equipped).color;
 
         // Game loop
         function update() {
@@ -272,136 +422,154 @@
             if (gameOver && !restartTriggered) {
                 restartTriggered = true;
                 aud.pause();
-                if (musicInterval) clearInterval(musicInterval);
-                musicInterval = null;
-                if (player.score > highScore) {
-                    highScore = player.score;
-                    localStorage.setItem('highScore', highScore);
-                }
+                totalCoins += player.score; // Add score to total coins
+                ctx.fillStyle = '#FF6600';
+                ctx.fillRect(gameOverShopBtn.x, gameOverShopBtn.y, gameOverShopBtn.width, gameOverShopBtn.height);
+                ctx.fillStyle = 'white';
+                ctx.fillText('Shop', gameOverShopBtn.x + 15, gameOverShopBtn.y + 25);
                 setTimeout(() => {
                     location.reload();
-                }, 200);
+                }, 2000); // Increased delay to allow shop interaction
             }
 
-            if (gameOver) return;
+            if (gameOver && !shopOpen) return;
 
-            // Player movement
-            if (keys.right && player.x < canvas.width - player.size) {
-                player.x += player.speed;
-            }
-            if (keys.left && player.x > 0) {
-                player.x -= player.speed;
-            }
-
-            // Apply velocity
-            player.velocityY += gravity;
-            player.x += player.velocityX;
-            player.y += player.velocityY;
-
-            // Friction for horizontal velocity
-            player.velocityX *= 0.9;
-
-            // Wall collision and wall jumping
-            player.onWall = false;
-            for (let wall of walls) {
-                if (checkCollision(player, wall)) {
-                    player.onWall = true;
-                    player.jumping = false;
-                    player.velocityY = 0;
-                    player.x = wall.x === 0 ? wall.x + wall.width : wall.x - player.size;
+            if (!shopOpen) {
+                // Player movement
+                if (keys.right && player.x < canvas.width - player.size) {
+                    player.x += player.speed;
                 }
-            }
+                if (keys.left && player.x > 0) {
+                    player.x -= player.speed;
+                }
 
-            // Rotate when jumping or on wall
-            if (player.jumping || player.onWall) {
-                player.rotation += rotationSpeed;
-            } else {
-                player.rotation = 0;
-            }
+                // Apply velocity
+                player.velocityY += gravity;
+                player.x += player.velocityX;
+                player.y += player.velocityY;
 
-            // Ground collision
-            if (player.y > canvas.height - player.size) {
-                player.y = canvas.height - player.size;
-                player.velocityY = 0;
-                player.jumping = false;
+                // Friction for horizontal velocity
+                player.velocityX *= 0.9;
+
+                // Wall collision and wall jumping
                 player.onWall = false;
-            }
-
-            // Trail effect update
-            trail.push({ x: player.x, y: player.y, alpha: 1 });
-            for (let i = trail.length - 1; i >= 0; i--) {
-                trail[i].alpha -= 0.05;
-                if (trail[i].alpha <= 0) trail.splice(i, 1);
-            }
-
-            // Coin collection
-            for (let i = coins.length - 1; i >= 0; i--) {
-                if (checkCollision(player, coins[i])) {
-                    coins.splice(i, 1);
-                    player.score += 1;
-                    spawnCoin();
+                for (let wall of walls) {
+                    if (checkCollision(player, wall)) {
+                        player.onWall = true;
+                        player.jumping = false;
+                        player.velocityY = 0;
+                        player.x = wall.x === 0 ? wall.x + wall.width : wall.x - player.size;
+                    }
                 }
-            }
 
-            // Spike collision
-            for (let spike of spikes) {
-                if (checkCollision(player, spike)) {
-                    gameOver = true;
+                // Rotate when jumping or on wall
+                if (player.jumping || player.onWall) {
+                    player.rotation += rotationSpeed;
+                } else {
+                    player.rotation = 0;
+                }
+
+                // Ground collision
+                if (player.y > canvas.height - player.size) {
+                    player.y = canvas.height - player.size;
+                    player.velocityY = 0;
+                    player.jumping = false;
+                    player.onWall = false;
+                }
+
+                // Trail effect update
+                trail.push({ x: player.x, y: player.y, alpha: 1 });
+                for (let i = trail.length - 1; i >= 0; i--) {
+                    trail[i].alpha -= 0.05;
+                    if (trail[i].alpha <= 0) trail.splice(i, 1);
+                }
+
+                // Coin collection
+                for (let i = coins.length - 1; i >= 0; i--) {
+                    if (checkCollision(player, coins[i])) {
+                        coins.splice(i, 1);
+                        player.score += 1;
+                        spawnCoin();
+                    }
+                }
+
+                // Spike collision
+                for (let spike of spikes) {
+                    if (checkCollision(player, spike)) {
+                        gameOver = true;
+                    }
                 }
             }
 
             // Drawing
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Draw trail
-            ctx.fillStyle = 'rgba(255, 0, 255, 0.2)';
-            for (let t of trail) {
-                ctx.globalAlpha = t.alpha;
-                ctx.fillRect(t.x, t.y, player.size, player.size);
-            }
-            ctx.globalAlpha = 1;
+            if (!shopOpen) {
+                // Draw trail
+                ctx.fillStyle = trailColor === 'rainbow' ? `hsl(${Date.now() % 360}, 100%, 50%, 0.2)` : trailColor;
+                for (let t of trail) {
+                    ctx.globalAlpha = t.alpha;
+                    ctx.fillRect(t.x, t.y, player.size, player.size);
+                }
+                ctx.globalAlpha = 1;
 
-            // Draw player (rotating square)
-            ctx.save();
-            ctx.translate(player.x + player.size/2, player.y + player.size/2);
-            ctx.rotate(player.rotation);
-            ctx.fillStyle = 'white';
-            ctx.fillRect(-player.size/2, -player.size/2, player.size, player.size);
-            ctx.restore();
+                // Draw player (rotating square)
+                ctx.save();
+                ctx.translate(player.x + player.size/2, player.y + player.size/2);
+                ctx.rotate(player.rotation);
+                ctx.fillStyle = player.cubeColor;
+                ctx.fillRect(-player.size/2, -player.size/2, player.size, player.size);
+                ctx.restore();
 
-            // Draw coins (yellow circles)
-            ctx.fillStyle = 'yellow';
-            for (let coin of coins) {
-                ctx.beginPath();
-                ctx.arc(coin.x + coin.size/2, coin.y + coin.size/2, coin.size/2, 0, Math.PI * 2);
-                ctx.fill();
-            }
+                // Draw coins (yellow circles)
+                ctx.fillStyle = 'yellow';
+                for (let coin of coins) {
+                    ctx.beginPath();
+                    ctx.arc(coin.x + coin.size/2, coin.y + coin.size/2, coin.size/2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
 
-            // Draw spikes (red triangles)
-            ctx.fillStyle = 'red';
-            for (let spike of spikes) {
-                ctx.beginPath();
-                ctx.moveTo(spike.x + spike.size/2, spike.y - spike.size);
-                ctx.lineTo(spike.x, spike.y);
-                ctx.lineTo(spike.x + spike.size, spike.y);
-                ctx.fill();
-            }
+                // Draw spikes (red triangles)
+                ctx.fillStyle = 'red';
+                for (let spike of spikes) {
+                    ctx.beginPath();
+                    ctx.moveTo(spike.x + spike.size/2, spike.y - spike.size);
+                    ctx.lineTo(spike.x, spike.y);
+                    ctx.lineTo(spike.x + spike.size, spike.y);
+                    ctx.fill();
+                }
 
-            // Draw score and high score
-            ctx.fillStyle = 'white';
-            ctx.font = '20px Arial';
-            ctx.fillText(`Score: ${player.score}`, 10, 30);
-            ctx.fillText(`High Score: ${highScore}`, 10, 60);
-
-            // Game over text
-            if (gameOver) {
+                // Draw score and high score
                 ctx.fillStyle = 'white';
-                ctx.font = '40px Arial';
-                ctx.fillText('Game Over!', canvas.width/2 - 100, canvas.height/2);
                 ctx.font = '20px Arial';
-                const restartText = 'Restarting...';
-                const textWidth = ctx.measureText(restartText).width;
-                ctx.fillText(restartText, canvas.width/2 - textWidth/2, canvas.height/2 + 40);
+                ctx.fillText(`Score: ${player.score}`, 10, 30);
+                ctx.fillText(`High Score: ${highScore}`, 10, 60);
+                ctx.fillText(`Coins: ${totalCoins}`, 10, 90);
+
+                // Draw shop button during gameplay
+                if (!gameOver) {
+                    ctx.fillStyle = '#FF6600';
+                    ctx.fillRect(shopBtn.x, shopBtn.y, shopBtn.width, shopBtn.height);
+                    ctx.fillStyle = 'white';
+                    ctx.fillText('Shop', shopBtn.x + 15, shopBtn.y + 25);
+                }
+
+                // Game over text
+                if (gameOver) {
+                    ctx.fillStyle = 'white';
+                    ctx.font = '40px Arial';
+                    ctx.fillText('Game Over!', canvas.width/2 - 100, canvas.height/2);
+                    ctx.font = '20px Arial';
+                    const restartText = 'Restarting...';
+                    const textWidth = ctx.measureText(restartText).width;
+                    ctx.fillText(restartText, canvas.width/2 - textWidth/2, canvas.height/2 + 40);
+                    ctx.fillStyle = '#FF6600';
+                    ctx.fillRect(gameOverShopBtn.x, gameOverShopBtn.y, gameOverShopBtn.width, gameOverShopBtn.height);
+                    ctx.fillStyle = 'white';
+                    ctx.fillText('Shop', gameOverShopBtn.x + 15, gameOverShopBtn.y + 25);
+                }
+            } else {
+                renderShopMenu();
             }
 
             requestAnimationFrame(update);
